@@ -2,7 +2,7 @@ import os,sys,web,requests
 from pymgsql import *
 from sqlobject.sqlbuilder import *
 from sqlobject.classregistry import findClass
-from datetime import datetime
+from datetime import date,time,datetime
 ###==========Encoding fix==========###
 reload(sys)
 sys.setdefaultencoding('UTF8')
@@ -37,9 +37,9 @@ class User(Schema):
 	request_users=MultipleJoin('Request_doc',joinColumn='request_user_id')
 	commercial_numbers=MultipleJoin('Committee_list',joinColumn='user_id')
 	loan_agreements=MultipleJoin('Loan_agreement',joinColumn='head_finance_id')
-	inventory_user_ids=MultipleJoin('Request_report',joinColumn='inventory_user_id')
-	dean_ids=MultipleJoin('Request_report',joinColumn='dean_id')
-	requestUser_ids=MultipleJoin('Request_report',joinColumn='request_user_id')
+	inventory_user_id=MultipleJoin('Request_report',joinColumn='inventory_user_id')
+	dean_id=MultipleJoin('Request_report',joinColumn='dean_id')
+	request_user_id=MultipleJoin('Request_report',joinColumn='request_user_id')
 	goodsReceiveds=MultipleJoin('Goods_received',joinColumn='receive_user')
 	borrowers=MultipleJoin('Borrow_assets',joinColumn='user_id')
 	borrows=MultipleJoin('Borrow_assets',joinColumn='inventory_user_id')
@@ -146,13 +146,13 @@ class Committee_list(Schema):
 	request_doc=ForeignKey("Request_doc", dbName="request_doc_id" ,notNone=False,default=None)
 	user=ForeignKey("User", dbName="user_id",notNone=False,default=None)
 	fk=DatabaseIndex("request_doc", "user", unique=True)
-		
-		
+	
+	
 class Quotation(Schema):
 	class sqlmeta:
 		table='quotation'
 	doc_date=DateTimeCol(dbName='doc_date', default=None)
-	quotation=BLOBCol(dbName='quotation', default=None, length=2**16, varchar=False)
+	quotation=UnicodeCol(length=80,dbName='quotation',notNone=True,default='default.png')
 	file_name=UnicodeCol(length=200, dbName='file_name',default='')
 	request_doc_id=ForeignKey('Request_doc', dbName='request_doc_id' ,notNone=False,default=None)
 	vendor=ForeignKey('Vendor', dbName='vendor_id',notNone=False,default=None)
@@ -163,7 +163,7 @@ class Specification(Schema):
 	class sqlmeta:
 		table='specification'
 	doc_date=DateTimeCol(default=None, dbName='doc_date')
-	specification=BLOBCol(dbName='specification', default=None, length=2**16, varchar=False)
+	specification=UnicodeCol(length=80,dbName='specification',notNone=True,default='default.png')
 	file_name=UnicodeCol(length=200, dbName='file_name' ,notNone=True, default='')
 	request_doc_id=ForeignKey('Request_doc', dbName='request_doc_id' ,notNone=False,default=None)
 	
@@ -174,7 +174,7 @@ class Loan_agreement(Schema):
 	loan_no=UnicodeCol(length=50 ,dbName='loan_no' ,notNone=True, default='')
 	amount=FloatCol(dbName='amount', default=0, notNone=True)
 	due_date=DateTimeCol(default=None, dbName='due_date')
-	borrow_book=BLOBCol(dbName='borrow_book', default=None, length=2**16, varchar=False)
+	loan_agreement=UnicodeCol(length=80,dbName='loan_agreement',notNone=True,default='default.png')
 	file_name=UnicodeCol(length=200, dbName='file_name', notNone=True, default='')
 	doc_date=DateTimeCol(default=None, dbName='doc_date')
 	finance_date=DateTimeCol(default=None, dbName='finance_date')
@@ -185,7 +185,7 @@ class Loan_agreement(Schema):
 	
 class Request_report(Schema):
 	class sqlmeta:
-		table='requestReport'
+		table='request_report'
 	request_report_no=UnicodeCol(length=50, dbName='request_report_no' ,notNone=True, default='')
 	division=UnicodeCol(length=100, dbName='division', default='')
 	doc_date=DateTimeCol(dbName='doc_date', default=None)
@@ -204,9 +204,6 @@ class Request_report(Schema):
 	request_report_detail=MultipleJoin('Request_report_detail', joinColumn='request_report_id')
 	purchase_order=MultipleJoin('Purchase_order', joinColumn='request_report_id')
 	vendor_id=ForeignKey('Vendor', dbName='vendor_id',notNone=False,default=None)
-	
-	
-	
 	
 class Request_report_detail(Schema):
 	class sqlmeta:
@@ -258,7 +255,7 @@ class Goods_received(Schema):
 	receive_date=DateTimeCol(dbName='receive_date', default=None)
 	tax=FloatCol(dbName='tax', default=0)
 	total_price=FloatCol(dbName='total_price', default=0)
-	invoice=BLOBCol(dbName='invoice', length=2**16, varchar=False, default=None)
+	invoice=UnicodeCol(length=80,dbName='invoice',notNone=True,default='default.png')
 	file_name=UnicodeCol(length=200, dbName='file_name' ,notNone=True, default='')
 	purchase_order_id=ForeignKey('Purchase_order', dbName='purchase_order_id',notNone=False,default=None)
 	inventory_group_id=ForeignKey('Inventory_group', dbName='inventory_group_id',notNone=False,default=None)
@@ -278,7 +275,7 @@ class Assets(Schema):
 	total_unit=IntCol(dbName='total_unit', default=0)
 	count_unit=UnicodeCol(length=50, dbName='count_unit' ,notNone=True, default='')
 	price_per_unit=FloatCol(dbName='price_per_unit', default=0)
-	image=BLOBCol(dbName='image', length=2**16, varchar=False, default=None)
+	image=UnicodeCol(length=80,dbName='image',notNone=True,default='default.png')
 	file_name=UnicodeCol(length=200, dbName='file_name' ,notNone=True, default='')
 	inventory_group_id=ForeignKey('Inventory_group',dbName='inventory_group_id',notNone=False,default=None)
 	goods_received_assets=MultipleJoin('Goods_received_assets', joinColumn='assets_id')
@@ -352,28 +349,25 @@ class Borrow_assets_detail(Schema):
 class Assets_dispense(Schema):
 	class sqlmeta:
 		table='assets_dispense'
-	assets_dispense_no=UnicodeCol(length=200, dbName='assets_dispense_no' ,notNone=True)
-	doc_date=DateTimeCol(dbName='doc_date')
-	taken_date=DateTimeCol(dbName='taken_date')
-	dispense_reason=UnicodeCol(length=200, dbName='dispense_reason' ,notNone=True)
-	method=UnicodeCol(length=200, dbName='method')
-	receiver=UnicodeCol(length=200, dbName='receiver')
-	evidence=BLOBCol(dbName='evidence' ,length=2**16, varchar=False)
-	file_name=UnicodeCol(length=200, dbName='file_name' ,notNone=True)
+	assets_dispense_no=UnicodeCol(length=200, dbName='assets_dispense_no' ,notNone=True, default='')
+	doc_date=DateTimeCol(dbName='doc_date',default=None)
+	taken_date=DateTimeCol(dbName='taken_date',default=None)
+	dispense_reason=UnicodeCol(length=200, dbName='dispense_reason' ,notNone=True, default='')
+	method=UnicodeCol(length=200, dbName='method', default='')
+	receiver=UnicodeCol(length=200, dbName='receiver', default='')
+	evidence=UnicodeCol(length=80,dbName='evidence',notNone=True,default='default.png')
+	file_name=UnicodeCol(length=200, dbName='file_name' ,notNone=True, default='')
 	approving_user=ForeignKey('User' ,dbName='approving_user',notNone=False,default=None)
 	disposing_user=ForeignKey('User' ,dbName='disposing_user',notNone=False,default=None)
 	assets_dispense_detail=MultipleJoin('Assets_dispense_detail', joinColumn='assets_dispense_id')
 	
-	
-	
 class Assets_dispense_detail(Schema):
 	class sqlmeta:
 		table='assets_dispense_detail'
-		assets_dispense_id=ForeignKey('Assets_dispense' ,dbName='assets_dispense_id',notNone=False,default=None)
-		id_assets_id=ForeignKey('Id_assets', dbName='id_assets_id',notNone=False,default=None)
-		fk=DatabaseIndex("assets_dispense", "id_assets", unique=True)
-		
-
+	assets_dispense_id=ForeignKey('Assets_dispense' ,dbName='assets_dispense_id',notNone=False,default=None)
+	id_assets_id=ForeignKey('Id_assets', dbName='id_assets_id',notNone=False,default=None)
+	
+	
 class Material(Schema):
 	class sqlmeta:
 		table='material'
@@ -383,7 +377,7 @@ class Material(Schema):
 	minimum_stock=IntCol(dbName='minimum_stock' ,default=0)
 	count_unit=UnicodeCol(length=50, dbName='count_unit' ,notNone=True ,default='')
 	price_per_unit=FloatCol(dbName='price_per_unit' ,default=0)
-	image=BLOBCol(dbName='image', length=2**16, varchar=False ,default=None)
+	image=UnicodeCol(length=80,dbName='image',notNone=True,default='default.png')
 	file_name=UnicodeCol(length=200, dbName='file_name' ,notNone=True ,default='')
 	inventory_group_id=ForeignKey('Inventory_group' ,dbName='inventory_group_id',notNone=False,default=None)
 	goods_received_material=MultipleJoin('Goods_received_material', joinColumn='material_id')
@@ -407,14 +401,14 @@ class Goods_received_material(Schema):
 class Material_dispense(Schema):
 	class sqlmeta:
 		table='material_dispense'
-	material_dispenseNo=UnicodeCol(length=200, dbName='assets_dispense' ,notNone=True, default='')
+	material_dispense_no=UnicodeCol(length=200, dbName='material_dispense_no' ,notNone=True, default='')
 	doc_date=DateTimeCol(dbName='doc_date', default=None)
 	taken_date=DateTimeCol(dbName='taken_date', default=None)
 	dispense_reason=UnicodeCol(length=200, dbName='dispense_reason' ,notNone=True, default='')
 	method=UnicodeCol(length=200, dbName='method', default='')
 	receiver=UnicodeCol(length=200, dbName='receiver', default='')
-	evidence=BLOBCol(dbName='evidence', length=2**16, varchar=False, default=None)
-	file_ame=UnicodeCol(length=200, dbName='file_name' ,notNone=True, default='')
+	evidence=UnicodeCol(length=80,dbName='evidence',notNone=True,default='default.png')
+	file_name=UnicodeCol(length=200, dbName='file_name' ,notNone=True, default='')
 	approving_user=ForeignKey('User' ,dbName='approving_user',notNone=False,default=None)
 	disposing_user=ForeignKey('User', dbName='disposing_user',notNone=False,default=None)
 	material_dispense_detail=MultipleJoin('Material_dispense_detail' ,joinColumn='material_dispense_id')
@@ -470,7 +464,7 @@ class Contract_fine(Schema):
 class Upload_file(Schema):
 	class sqlmeta:
 		table='upload_file'
-	image=BLOBCol(dbName='iamge', length=2**16, varchar=False, default=None)
+	image=UnicodeCol(length=80,dbName='image',notNone=True,default='default.png')
 	file_name=UnicodeCol(length=200, dbName='file_name' ,notNone=True, default='')
 	goods_received_id=ForeignKey('Goods_received', notNone=True, dbName='goods_received_id')
 	
@@ -482,7 +476,7 @@ class Repairing(Schema):
 	repair_date=DateTimeCol(dbName='repair_date', default=None)
 	doc_date=DateTimeCol(dbName='doc_date' , default=None)
 	end_date=DateTimeCol(dbName='end_date', default=None)
-	repair_invoice=BLOBCol(dbName='repair_invoice', length=2**16, varchar=False, default=None)
+	repairing_invoice=UnicodeCol(length=80,dbName='repairing_invoice',notNone=True,default='default.png')
 	file_name=UnicodeCol(length=200, dbName='file_name' ,notNone=True, default='')
 	id_assets_id=ForeignKey('Id_assets', dbName='id_assets_id',notNone=False,default=None)
 
@@ -644,7 +638,7 @@ Assets_dispense,Assets_dispense_detail,Material,Goods_received_material,Material
 Out_material,Out_material_detail,Contract,Contract_fine,Upload_file,Repairing)
 
 db=MgSQL('mysql://kulbadz:kul0007@proton.it.kmitl.ac.th/kulbadz?charset=utf8')
-db=MongoSQL('mysql://kulbadz:kul0007@proton.it.kmitl.ac.th/kulbadz?charset=utf8')
+#db=MongoSQL('mysql://kulbadz:kul0007@proton.it.kmitl.ac.th/kulbadz?charset=utf8')
 db.regis(DB)
 
 ###==========URL handle==========###
@@ -668,7 +662,7 @@ urls=(
 	'/MaterialDispense','MaterialDispense',
 	'/MaterialReport','MaterialReport',
 	'/login','Login',
-	'/initdata','InitData',
+	'/initdata','InitData'
 )
 app=web.application(urls,globals())
 
@@ -736,8 +730,13 @@ class Home:
 	def GET(self):
 		web.header('Content-Type','text/html')
 		#return list(db.inventory_group.findObj(orderBy=['-id']))
-		return db.user.find({'username':'kulbadz'})
 		#return list(db.user.findObj(orderBy=['-id']))
+		#return list(db.assets_dispense.findObj(orderBy=['-id']))
+		return db.user.find({'username':'kulbadz'})
+		#return db.material.find({'id':1})
+		#return db.goods_received_material.find({'id':1})
+		#return db.assets_dispense.find({'id':1})
+		#return db.request_report.find({'id':1})
 class Hello:
 	def GET(self):
 		web.header('Content-Type','text/html')
@@ -807,8 +806,46 @@ class InitData:
 		for table in DB: table.createTable(ifNotExists=True)
 		#db=MongoSQL('mysql://kulbadz:kul0007@proton.it.kmitl.ac.th/kulbadz?charset=utf8')
 		#db.regis(DB)
-		db.user.insertObj({'username':'kulbadz','title':'','first_name':'test','last_name':'xyz'})
+		#db.user.insertObj({'username':'kulbadz','title':'','first_name':'test','last_name':'xyz'})
 		#db.user.insertObj({'username':'test2','password':'1234','title':'','first_name':'test2','last_name':'abc'})
+		#db.user.insertObj({'username':'jan','title':'Miss','first_name':'chanokporn','last_name':'hehe'})
+		#db.department.insertObj({'id':'001','deptname':'คณะวิศวกรรมศาสตร์'})
+		#db.department.insertObj({'id':'002','deptname':'คณะสถาปัตยกรรมศาสตร์'})
+		#db.department.insertObj({'id':'003','deptname':'คณะเทคโนโลยีการเกษตร'})
+		#db.department.insertObj({'id':'004','deptname':'คณะอุตสาหกรรมการเกษตร'})
+		#db.department.insertObj({'id':'005','deptname':'คณะวิทยาศาสตร์'})
+		#db.department.insertObj({'id':'006','deptname':'คณะครุศาสตร์อุตสาหกรรม'})
+		#db.department.insertObj({'id':'007','deptname':'คณะเทคโนโลยีสารสนเทศ'})
+		#db.inventory_group.insertObj({'id':'1251000001','group_name':'ครุภัณฑ์สำนักงาน','inventory_type':'ครุภัณฑ์'})
+		#db.inventory_group.insertObj({'id':'1251100001','group_name':'ครุภัณฑ์คอมพิวเตอร์','inventory_type':'ครุภัณฑ์'})
+		#db.inventory_group.insertObj({'id':'1251200001','group_name':'ครุภัณฑ์การศึกษา','inventory_type':'ครุภัณฑ์'})
+		#db.inventory_group.insertObj({'id':'1251300001','group_name':'ครุภัณฑ์งานบ้านงานครัว','inventory_type':'ครุภัณฑ์'})
+		#db.inventory_group.insertObj({'id':'1251400001','group_name':'ครุภัณฑ์กีฬา','inventory_type':'ครุภัณฑ์'})
+		#db.inventory_group.insertObj({'id':'1251500001','group_name':'ครุภัณฑ์ดนตรี','inventory_type':'ครุภัณฑ์'})
+		#db.inventory_group.insertObj({'id':'1251700001','group_name':'ครุภัณฑ์สนาม','inventory_type':'ครุภัณฑ์'})
+		#db.inventory_group.insertObj({'id':'1251800001','group_name':'ครุภัณฑ์ประเภทอื่น','inventory_type':'ครุภัณฑ์'})
+		#db.vendor.insertObj({'vendor_name':'บริษัท การค้าเจริญรุ่งเรือง จำกัด','commercial_number':'1234567890123','type_business':'1251000001','agent_first_name':'นายคนดี','agent_last_name':'ศรีสยาม','contact_number':'023894545','address_number':'44/68','road':'สุขุมวิท','tambon':'ลาดกระบัง','distinc':'ลาดกระบัง','provinc':'กรุงเทพ','post_code':'10280','phone_number':'086089777','fax':'027033521','email':'Dede@gmail.com','website':'www.kokoko.com'})
+		#db.vendor.insertObj({'vendor_name':'บริษัท คอมพิวเตอร์ จำกัด','commercial_number':'1234584584555','type_business':'1251100001','agent_first_name':'นางมารา','agent_last_name':'มาดี','contact_number':'021157899','address_number':'1157','road':'ศรีนครินทร์','tambon':'ลาดกระบัง','distinc':'ลาดกระบัง','provinc':'กรุงเทพ','post_code':'10180','phone_number':'023789988','fax':'027038921','email':'test@gmail.com','website':'www.mamamad.com'})
+		#db.goods_received.insertObj({'invoice_no':'1456699/11','receive_date':datetime.strptime('2014-08-08 15:20:00', '%Y-%m-%d %H:%M:%S'),'tax':7.0,'total_price':12000,'invoice':'default.png','file_name':'def.png','inventory_group_id':'1251000001'})
+		#db.assets.insertObj({'brand':'Dell','version':'Inspiron d774','assets_title':'คอมพิวเตอร์ตั้งโตะ','assets_detail':'คอมพิวเตอร์ตั้งโต๊ะครบชุด','total_unit':10,'count_unit':'ชุด','price_per_unit':12000,'image':'default.png','file_name':'default','inventory_group_id':'1251100001'})
+		#db.goods_received_assets.insertObj({'detail':'คอมพิวเตอร์ตั้งโต๊ะ','amount':120000,'price':12000,'tax':7,'unit':10,'count_unit':'ชุด','status_register':'ลงทะเบียน','goods_received_id':1})
+		#db.register_code.insertObj({'faculty':'06','major':'06054','academic_service':'09878','fund':'0114','plan':'00045','main_activity':'1234','second_activity':'01','sub_activity':'003','payment':'00554','payment_type':'00001','assets_id':1})
+		#db.id_assets.insertObj({'assets_no':'57ทส1-7440-01-02-01','assets_status':'พร้อมใช้','assets_id':1})
+		#db.id_assets.insertObj({'assets_no':'57ทส1-7440-01-02-02','assets_status':'พร้อมใช้','assets_id':1,'super_set':1})
+		#db.id_assets.insertObj({'assets_no':'57ทส1-7440-01-02-03','assets_status':'ยืม','assets_id':1,'super_set':1})
+		#db.id_assets.insertObj({'assets_no':'57ทส1-7440-01-02-04','assets_status':'ซ่อม','assets_id':1,'super_set':1})
+		#db.borrow_assets.insertObj({'borrow_date':datetime.strptime('2014-08-08 15:20:00', '%Y-%m-%d %H:%M:%S'),'doc_date':datetime.strptime('2014-08-08 15:20:00', '%Y-%m-%d %H:%M:%S'),'user_id':1,'inventory_user_id':2})
+		#db.borrow_assets_detail.insertObj({'due_date':datetime.strptime('2014-08-08 15:20:00', '%Y-%m-%d %H:%M:%S'),'return_date':datetime.strptime('2014-09-08 15:20:00', '%Y-%m-%d %H:%M:%S'),'doc_date':datetime.strptime('2014-08-08 15:20:00', '%Y-%m-%d %H:%M:%S'),'area':'คณะเทคโนโลยีสารสนเทศ','note':'ใช้เพื่อทำโปรเจ็ค','return_user':1,'borrow_assets_id':1,'id_assets_id':1})
+		#db.borrow_assets_detail.insertObj({'due_date':datetime.strptime('2014-08-08 15:20:00', '%Y-%m-%d %H:%M:%S'),'return_date':datetime.strptime('2014-09-08 15:20:00', '%Y-%m-%d %H:%M:%S'),'doc_date':datetime.strptime('2014-08-08 15:20:00', '%Y-%m-%d %H:%M:%S'),'area':'คณะเทคโนโลยีสารสนเทศ','note':'ใช้เพื่อทำโปรเจ็ค','return_user':1,'borrow_assets_id':1,'id_assets_id':2})
+		#db.borrow_assets_detail.insertObj({'due_date':datetime.strptime('2014-08-08 15:20:00', '%Y-%m-%d %H:%M:%S'),'return_date':datetime.strptime('2014-09-08 15:20:00', '%Y-%m-%d %H:%M:%S'),'doc_date':datetime.strptime('2014-08-08 15:20:00', '%Y-%m-%d %H:%M:%S'),'area':'คณะเทคโนโลยีสารสนเทศ','note':'ใช้เพื่อทำโปรเจ็ค','return_user':1,'borrow_assets_id':1,'id_assets_id':3})
+		#db.assets_dispense.insertObj({'assets_dispense_no':'57-458888','doc_date':datetime.strptime('2014-08-08 15:20:00', '%Y-%m-%d %H:%M:%S'),'taken_date':datetime.strptime('2014-08-08 15:20:00', '%Y-%m-%d %H:%M:%S'),'dispense_reason':'พัสดุหมดอายุการใช้งาน','method':'ขาย','receiver':'ช การค้า','evidence':'pop.png','file_name':'pop','disposing_user':1})
+		#db.material.insertObj({'material_name':'ปากกา','detail':'ปากกาลูกลื่น','on_hand':100,'minimum_stock':10,'count_unit':'แท่ง','price_per_unit':10,'image':'pen.png','file_name':'pen','inventory_group_id':1251100001})
+		#db.goods_received_material.insertObj({'detail':'ปากกาลูกลื่น','amount':1000,'price':10,'tax':7,'unit':10,'count_unit':'แท่ง','status_register':'ลงทะเบียน','goods_received_id':1,'material_id':1})
+		#db.material_dispense.insertObj({'material_dispense_no':'57-458888','doc_date':datetime.strptime('2014-08-08 15:20:00', '%Y-%m-%d %H:%M:%S'),'taken_date':datetime.strptime('2014-08-08 15:20:00', '%Y-%m-%d %H:%M:%S'),'dispense_reason':'พัสดุหมดอายุการใช้งาน','method':'ขาย','receiver':'ช การค้า','evidence':'pop.png','file_name':'pop','approving_user':2,'disposing_user':1})
+		#db.material_dispense_detail.insertObj({'unit':10,'material_dispense_id':1,'material_id':1})
+		#db.out_material.insertObj({'date_out_material':datetime.strptime('2014-08-08 15:20:00', '%Y-%m-%d %H:%M:%S'),'user_id':1})
+		#db.out_material_detail.insertObj({'unit':10,'note':'no note','material_id':1,'out_material_id':1})
+		#db.repairing.insertObj({'detail':'ซ่อมคอมพิวเตอร์','repair_cost':'1000','repair_date':datetime.strptime('2014-08-08 15:20:00', '%Y-%m-%d %H:%M:%S'),'doc_date':datetime.strptime('2014-08-08 15:20:00', '%Y-%m-%d %H:%M:%S'),'end_date':datetime.strptime('2014-08-08 15:20:00', '%Y-%m-%d %H:%M:%S'),'repairing_invoice':'invoice.png','file_name':'invoice','id_assets_id':1})
 		
 		raise web.seeother('/')
 ###==========Error handle==========###
